@@ -20,6 +20,6 @@ class SphereObstacle(Obstacle):
                 return True
             arm_vec = joint_coordinates[i + 1] - joint_coordinates[i] 
             t = (self.center @ arm_vec - joint_coordinates[i] @ arm_vec) / (np.linalg.norm(arm_vec) ** 2)  # arm contains all points: joint_coordinates[i] + t * arm_vec, if t \in [0, 1]
-            if 0 <= t <= 1: 
+            if 0 <= t <= 1 and np.linalg.norm(joint_coordinates[i] + arm_vec * t - self.center) < self.r:
                 return True
         return False

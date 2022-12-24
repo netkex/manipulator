@@ -2,7 +2,7 @@ from typing import Optional, List
 import numpy as np
 
 
-class Manipulator(): 
+class Manipulator():
     def __init__(self, 
         joint_num: int, 
         angle_delta: Optional[float] = np.pi / 180,
@@ -44,22 +44,30 @@ class Manipulator():
             self.joint_coordinates[i][[0, 1]] = turn_around_rot @ self.joint_coordinates[i][[0, 1]]
         return self.joint_coordinates
 
-    def get_successors(self): 
+    def copy_with_new_angles(self, new_angles):
+        return Manipulator(
+            self.joint_num,
+            self.angle_delta,
+            new_angles,
+            self.arm_len,
+        )
+
+    def get_successors(self):
         successors = []
-        for i in range(self.joint_num): 
+        for i in range(self.joint_num):
             for dangle in [-self.angle_delta, self.angle_delta]:
                 new_joint_angle = self.joint_angles[i] + dangle
-                if new_joint_angle < 2 * -np.pi: 
+                if new_joint_angle < 0:
                     new_joint_angle += 2 * np.pi 
                 if new_joint_angle > 2 * np.pi: 
                     new_joint_angle -= 2 * np.pi 
-                successors.append(Manipulator(
-                    self.joint_num,
-                    self.angle_delta, 
-                    self.joint_angles[:i] + [new_joint_angle] + self.joint_angles[i+1:],
-                    self.arm_len 
+                successors.append(self.copy_with_new_angles(
+                    self.joint_angles[:i] + [new_joint_angle] + self.joint_angles[i+1:]
                 ))
         return successors
+
+    def calc_angle_distance(self, other):
+        return np.abs(np.array(self.joint_angles) - np.array(other.joint_angles)).sum()
 
     @staticmethod
     def rotation_matrix_2d(angle: float) -> np.ndarray: 
