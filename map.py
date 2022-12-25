@@ -8,6 +8,8 @@ from obstacle import Obstacle
 
 class Map:
 
+    eps = 1e-6
+
     def __init__(self, obstacles: List[Obstacle], finish: np.ndarray, finish_size):
         '''
         Default constructor
@@ -18,6 +20,9 @@ class Map:
         self.finish_size = finish_size
 
     def valid(self, manipulator: Manipulator):
+        if manipulator.get_joint_coordinates()[:,2].min() < -Map.eps:
+            return False
+
         for obs in self.obstacles:
             if obs.intersect(manipulator):
                 return False

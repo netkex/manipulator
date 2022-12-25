@@ -69,6 +69,9 @@ class Manipulator():
     def calc_angle_distance(self, other):
         return np.abs(np.array(self.joint_angles) - np.array(other.joint_angles)).sum()
 
+    def calc_raw_distance(self, point):
+        return ((self.get_joint_coordinates()[-1] - point) ** 2).sum()
+
     @staticmethod
     def rotation_matrix_2d(angle: float) -> np.ndarray: 
         return np.array([
