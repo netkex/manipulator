@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 
 import numpy as np
 import scipy.stats as ss
@@ -22,7 +22,7 @@ class GridCell:
         self.motions = motions
         self.coords = coords
         self.inner_grid = inner_grid
-        self.iter = 2
+        self.iter = iter
         self.s = 1
 
     def importance(self):
@@ -33,10 +33,6 @@ class GridCell:
         else:
             c = len(self.inner_grid.cells)
         return np.log(self.iter) / (self.s * (n + 1) * c)
-
-
-    def __le__(self, other):
-        return self.importance() > other.importance()
 
 
 class Grid:
@@ -53,13 +49,11 @@ class Grid:
 
     def _add_motion(self, motion: Motion, cc: int):
         coords = np.floor_divide(motion.start_node.state.joint_angles - self.lbounds, self.edge_size)
-        #print(coords)
         cell = None
         for elem in self.cells:
             if np.abs(elem.coords - coords).sum() < Grid.eps:
                 cell = elem
                 break
-        #print("angles", motion.start_node.state.joint_angles, "level = ", self.level, "coords = ", coords, "lbounds = ", self.lbounds)
         if cell is None:
             cell = GridCell(self, coords, iter=cc)
             self.cells.append(cell)
@@ -76,7 +70,6 @@ class Grid:
     def add_motion(self, motion: Motion, cc: int):
         coords = np.floor_divide(motion.start_node.state.joint_angles - self.lbounds, self.edge_size)
         init_pos = motion.start_node.state.joint_angles[motion.joint]
-        tm_needed = None
         if motion.dir == 1:
             tm_needed = self.lbounds[motion.joint] + self.edge_size * (coords[motion.joint] + 1) - init_pos
         else:
@@ -111,7 +104,6 @@ class Grid:
             new_coords[i] = (cell.coords[i] - 1 + self.k) % self.k
             if self._coords_to_code(new_coords) in self.all_codes:
                 cnt += 1
-        #print("Cnt neighbors = ", cnt)
         return cnt
 
     def _split_int_ext(self):
@@ -121,12 +113,10 @@ class Grid:
                 interior.append(elem)
             else:
                 exterior.append(elem)
-        #print("int/ext = ", len(interior), len(exterior))
         return interior, exterior
 
-    def select_motion(self) -> (Motion, GridCell):
+    def select_motion(self) -> Tuple[Motion, GridCell]:
         interior, exterior = self._split_int_ext()
-        cells = None
         if np.random.rand() < Grid.bias:
             cells = exterior
         else:
@@ -136,7 +126,6 @@ class Grid:
             cells = self.cells
 
         best = None
-        #print(len(cells))
         for elem in cells:
             if best is None or elem.importance() > best.importance():
                 best = elem
@@ -145,31 +134,27 @@ class Grid:
             return best.inner_grid.select_motion()
 
         sz = len(best.motions)
-        #print("size = ", sz)
-        #ind = np.random.randint(0, sz)
-        #return best.motions[ind], best
         ind = int((ss.halfnorm().rvs()))
         return best.motions[max(sz - ind - 1, 0)], best
 
 
 def kpiece(manip: Manipulator, map: Map, grid_k=2):
-    curlen = maxlen = 2 * np.pi
+    curlen = 2 * np.pi
     lvls = 1
     while curlen > map.finish_size:
         lvls += 1
         curlen /= grid_k
     grid = Grid(lvls, np.zeros(manip.joint_num), edge_size=2*np.pi/grid_k, k=grid_k)
     start_node = Node(manip)
-    grid.add_motion(Motion(start_node, 0, 0, 0.0001), 2)
-    cc = 0
+    grid.add_motion(Motion(start_node, 0, 1, 0.0001), 2)
+    cc = 1
     while True:
         cc += 1
         motion, cell = grid.select_motion()
-        #print(motion, motion.dur_max, motion.start_node.state.get_joint_coordinates())
         t = np.random.rand() * motion.dur_max
         nxt_state = motion.start_node.state.apply(motion.joint, motion.dir, t)
         nxt_node = Node(nxt_state, motion.start_node.g + t, parent=motion.start_node)
-        joint_ind = np.random.randint(0, manip.joint_num - 1)
+        joint_ind = np.random.randint(0, manip.joint_num)
         dir = 1
         if np.random.rand() > 0.5:
             dir = -1
@@ -181,7 +166,7 @@ def kpiece(manip: Manipulator, map: Map, grid_k=2):
             if not map.valid(after_move):
                 break
             if map.is_in_finish(after_move):
-                return dump_node#Node(after_move, motion.start_node.g + max_dur + manip.angle_delta, parent=motion.start_node)
+                return dump_node
             max_dur += manip.angle_delta
 
         if max_dur > 0:
