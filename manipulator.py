@@ -55,19 +55,26 @@ class Manipulator():
     def get_successors(self):
         successors = []
         for i in range(self.joint_num):
-            for dangle in [-self.angle_delta, self.angle_delta]:
-                new_joint_angle = self.joint_angles[i] + dangle
-                if new_joint_angle < 0:
-                    new_joint_angle += 2 * np.pi 
-                if new_joint_angle > 2 * np.pi: 
-                    new_joint_angle -= 2 * np.pi 
-                successors.append(self.copy_with_new_angles(
-                    self.joint_angles[:i] + [new_joint_angle] + self.joint_angles[i+1:]
-                ))
+            for dir in [-1, 1]:
+                successors.append(self.apply(i, dir, self.angle_delta))
         return successors
 
+    def apply(self, joint_ind, dir, dangle):
+        new_joint_angle = self.joint_angles[joint_ind] + dangle * dir
+        if new_joint_angle < 0:
+            new_joint_angle += 2 * np.pi
+        if new_joint_angle > 2 * np.pi:
+            new_joint_angle -= 2 * np.pi
+        return self.copy_with_new_angles(
+            self.joint_angles[:joint_ind] + [new_joint_angle] + self.joint_angles[joint_ind + 1:]
+        )
+
+    def calc_raw_distance(self, point):
+        return ((self.get_joint_coordinates()[-1] - point) ** 2).sum()
+
     def calc_angle_distance(self, other):
-        return np.abs(np.array(self.joint_angles) - np.array(other.joint_angles)).sum()
+        dsts = np.abs(np.array(self.joint_angles) - np.array(other.joint_angles))
+        return np.minimum(dsts, 2 * np.pi - dsts).sum()
 
     @staticmethod
     def rotation_matrix_2d(angle: float) -> np.ndarray: 
