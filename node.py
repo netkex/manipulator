@@ -37,7 +37,7 @@ class Node:
         '''
         To implement CLOSED as set of nodes we need Node to be hashable.
         '''
-        return hash(self.state.joint_angles)
+        return hash(str([int(angle / self.eps) for angle in self.state.joint_angles]))
 
     def __lt__(self, other):
         '''
