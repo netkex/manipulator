@@ -6,9 +6,9 @@ import numpy as np
 
 def default_heuristic_func(manipulator, finish):
 	dist = np.linalg.norm(manipulator.get_joint_coordinates()[-1] - finish)
-	r = np.sum(manipulator.arm_len)
-	#r = np.max(manipulator.arm_len)
-	
+	#r = np.sum(manipulator.arm_len)
+	r = np.max(manipulator.arm_len)
+
 	if dist > 2 * r:
 		return np.pi
 
@@ -23,8 +23,6 @@ def astar(initial_state: Manipulator, grid_map: Map, heuristic_func=default_heur
 		current_node = ast.get_best_node_from_open()
 		if current_node is None:
 			break
-
-		print(current_node.state.get_joint_coordinates())
 
 		if grid_map.is_in_finish(current_node.state):
 			last_node = current_node
