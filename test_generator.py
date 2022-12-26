@@ -17,19 +17,28 @@ class ManipulatorTest:
         self.obstacles = obstacles
 
 
-def generate_test_obstacle_on_way(
+def generate_test(
     joint_num: int, 
     obstacles_num: int,
     sigma: float = 0.5, 
+    size: float = 0.5,
+    scale: float = 0.25,
+    type: str = 'onway',
 ) -> ManipulatorTest: 
     goal = ss.uniform(0.1, joint_num / 2 - 0.1).rvs(size=3) * np.random.choice([-1, 1], 3)
     goal[2] = np.abs(goal[2])
     obstacles = []
     for _ in range(obstacles_num): 
-        obstacle_noise = ss.norm(loc=0, scale=sigma).rvs(size=3)
-        obstacle_center = goal * ss.uniform(0.1, 0.8).rvs(size=1) + obstacle_noise
+        if type == 'onway':
+            obstacle_noise = ss.norm(loc=0, scale=sigma).rvs(size=3)
+            obstacle_center = goal * ss.uniform(0.1, 0.8).rvs(size=1) + obstacle_noise
+        elif type == 'random': 
+            obstacle_center = ss.uniform(0.1, joint_num / 2 - 0.1).rvs(size=3) * np.random.choice([-1, 1], 3)
+        else: 
+            raise RuntimeError('not implemented')
+            
         r_bound = min(np.linalg.norm(obstacle_center), np.linalg.norm(goal - obstacle_center))
-        r = ss.norm(loc=r_bound / 2, scale=r_bound / 4).rvs(size=1)
+        r = ss.norm(loc=r_bound * size, scale=r_bound * scale).rvs(size=1)
         obstacles.append(SphereObstacle(center=obstacle_center, r=r))
     
     while True: 
