@@ -17,35 +17,45 @@ class Motion:
 
 
 class GridCell:
-    def __init__(self, parent, coords: np.ndarray, motions: List[Motion] = None, inner_grid=None, iter=2):
+    def __init__(self, parent, coords: np.ndarray, motions: List[Motion] = None, inner_grid=None, iter=2, mindist=100, selection_rule='original'):
         self.parent = parent
         self.motions = motions
         self.coords = coords
         self.inner_grid = inner_grid
         self.iter = iter
         self.s = 1
+        self.mindist = mindist
+        self.selection_rule = selection_rule
 
     def importance(self):
         n = self.parent.cnt_neighbors(self)
-        c = 1
         if self.motions is not None:
             c = len(self.motions)
         else:
             c = len(self.inner_grid.cells)
-        return np.log(self.iter) / (self.s * (n + 1) * c)
+        if self.selection_rule == 'shortest':
+            return 1 / self.mindist
+        elif self.selection_rule == 'original':
+            return np.log(self.iter) / (self.s * (n + 1) * c)
+        elif self.selection_rule == 'mixed':
+            return np.log(self.iter) / (self.s * (n + 1) * c * self.mindist)
+        raise "wrong selection rule"
 
 
 class Grid:
     eps = 1e-6
     bias = 0.8
 
-    def __init__(self, level: int, lbounds: np.ndarray, edge_size: float, k: int = 2):
+    def __init__(self, level: int, lbounds: np.ndarray, edge_size: float, k: int, map: Map, selection_rule: str):
         self.level = level
         self.lbounds = lbounds
         self.edge_size = edge_size
         self.k = k
+        self.d = len(lbounds)
         self.cells = []
         self.all_codes = set()
+        self.map = map
+        self.selection_rule = selection_rule
 
     def _add_motion(self, motion: Motion, cc: int):
         coords = np.floor_divide(motion.start_node.state.joint_angles - self.lbounds, self.edge_size)
@@ -55,17 +65,18 @@ class Grid:
                 cell = elem
                 break
         if cell is None:
-            cell = GridCell(self, coords, iter=cc)
+            cell = GridCell(self, coords, iter=cc, mindist=self.map.dist_to_finish(motion.start_node.state) ** 2)
             self.cells.append(cell)
             self.all_codes.add(self._coords_to_code(coords))
             if self.level > 1:
-                cell.inner_grid = Grid(self.level - 1, self.lbounds + coords * self.edge_size, self.edge_size / self.k, self.k)
+                cell.inner_grid = Grid(self.level - 1, self.lbounds + coords * self.edge_size, self.edge_size / self.k, self.k, self.map, self.selection_rule)
             else:
                 cell.motions = []
         if self.level > 1:
             cell.inner_grid.add_motion(motion, cc)
         else:
             cell.motions.append(motion)
+        cell.mindist = min(cell.mindist, self.map.dist_to_finish(motion.start_node.state) ** 2)
 
     def add_motion(self, motion: Motion, cc: int):
         coords = np.floor_divide(motion.start_node.state.joint_angles - self.lbounds, self.edge_size)
@@ -96,7 +107,7 @@ class Grid:
 
     def cnt_neighbors(self, cell: GridCell):
         cnt = 0
-        for i in range(self.k):
+        for i in range(self.d):
             new_coords = cell.coords.copy()
             new_coords[i] = (new_coords[i] + 1) % self.k
             if self._coords_to_code(new_coords) in self.all_codes:
@@ -109,7 +120,7 @@ class Grid:
     def _split_int_ext(self):
         interior, exterior = [], []
         for elem in self.cells:
-            if self.cnt_neighbors(elem) == self.k * 2:
+            if self.cnt_neighbors(elem) == self.d * 2:
                 interior.append(elem)
             else:
                 exterior.append(elem)
@@ -134,17 +145,14 @@ class Grid:
             return best.inner_grid.select_motion()
 
         sz = len(best.motions)
-        ind = int((ss.halfnorm().rvs()))
+        ind = min(sz - 1, int((ss.halfnorm(scale=sz/6).rvs())))
         return best.motions[max(sz - ind - 1, 0)], best
 
 
-def kpiece(manip: Manipulator, map: Map, grid_k=2):
-    curlen = 2 * np.pi
-    lvls = 1
-    while curlen > map.finish_size:
-        lvls += 1
-        curlen /= grid_k
-    grid = Grid(lvls, np.zeros(manip.joint_num), edge_size=2*np.pi/grid_k, k=grid_k)
+def kpiece(manip: Manipulator, map: Map, grid_k=2, lvls=None, selection_rule='mixed'):
+    if lvls is None:
+        lvls = np.ceil(np.log(2 * np.pi / 0.1) / np.log(grid_k))
+    grid = Grid(lvls, np.zeros(manip.joint_num), edge_size=2*np.pi/grid_k, k=grid_k, map=map, selection_rule=selection_rule)
     start_node = Node(manip)
     grid.add_motion(Motion(start_node, 0, 1, 0.0001), 2)
     cc = 1

@@ -28,6 +28,8 @@ class Map:
                 return False
         return True
 
+    def dist_to_finish(self, manipulator: Manipulator):
+        return np.sqrt(((manipulator.get_joint_coordinates()[-1] - self.finish) ** 2).sum())
+
     def is_in_finish(self, manipulator: Manipulator):
-        position = manipulator.get_joint_coordinates()[-1]
-        return ((position - self.finish) ** 2).sum() < self.finish_size ** 2
+        return self.dist_to_finish(manipulator) < self.finish_size
