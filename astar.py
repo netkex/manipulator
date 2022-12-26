@@ -5,9 +5,9 @@ from search_tree import DefaultSearchTree
 import numpy as np
 
 def default_heuristic_func(manipulator, finish):
-	dist = np.linalg.norm(manipulator.get_joint_coordinates()[-1] - finish)
-	#r = np.sum(manipulator.arm_len)
-	r = np.max(manipulator.arm_len)
+	coordinates = manipulator.get_joint_coordinates()
+	dist = np.linalg.norm(coordinates[-1] - finish)
+	r = np.max(np.linalg.norm(coordinates - coordinates[-1]))
 
 	if dist > 2 * r:
 		return np.pi
