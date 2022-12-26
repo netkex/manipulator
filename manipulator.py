@@ -69,6 +69,9 @@ class Manipulator():
             self.joint_angles[:joint_ind] + [new_joint_angle] + self.joint_angles[joint_ind + 1:]
         )
 
+    def calc_raw_distance(self, point):
+        return ((self.get_joint_coordinates()[-1] - point) ** 2).sum()
+
     def calc_angle_distance(self, other):
         dsts = np.abs(np.array(self.joint_angles) - np.array(other.joint_angles))
         return np.minimum(dsts, 2 * np.pi - dsts).sum()
