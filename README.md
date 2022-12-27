@@ -94,6 +94,14 @@ that check intersection with given manipulator.
 
 * [generate_test](test_generator.py) - tool for test generation 
 
+### Benchmarking results
+
+`A*` and `RRT` becomes too slow on fairly small tests. `KPIECE` is significantly faster and we can do the following observations for it: 
+- with a fixed number of obstacles, as number of joints increases, the running time grows exponentially
+- with a fixed number of joints, as number of obstacles increases, the running time grows linearly
+
+![graphic](images/graphic_fixed_obstacles_num.png)
+![graphic](images/graphic_fixed_joints_num.png)
 
 ### References
 
